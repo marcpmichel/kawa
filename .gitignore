@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/kawa
+kawa.so
+kawa.dylib
+kawa.dll
+kawa.a
+kawa.lib
+kawa-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
