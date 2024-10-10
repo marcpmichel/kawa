@@ -1,0 +1,19 @@
+
+Statements:
+Statement = TypeDeclaration | VariableDeclaration | ExpressionStatement | PodDeclaration | FunctionDeclaration | HeapAllocation
+ExpressionStatement = Expression
+HeapAllocation = "@" TypeSpecifier
+
+Declaration:
+ConstantDeclaration = Identifier "#" TypeSpecifier "=" Expression
+VariableDeclaration = Identifier ":" TypeSpecifier "=" AssignmentExpression
+FunctionDeclaration = Identifier "<" "(" [Parameters] ")" ">" TypeSpecifier "{" { Statement } "}"
+PodDeclaration =      Identifier "{" { VariableDeclaration } "}"
+
+Expressions:
+Expression = AssignmentExpression
+AssignmentExpression = Identifier "=" Expression | ComparisonExpression
+ComparisonExpression = ArithmeticExpression { ("==" | "!=") ArithmeticExpression }
+ArithmeticExpression = Term { ("+" | "-") Term }
+Term = Factor { ("*" | "/") Factor }
+Factor = "(" Expression ")" | Identifier | Number | String

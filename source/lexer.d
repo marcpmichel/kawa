@@ -12,11 +12,17 @@ class Lexer {
     string curline;
 
     this() {
+        this.popFront();
     }
 
     void tokenize(string source) {
+        line = 1; col = 1;
         this.program = source.dup;
         popFront();
+    }
+
+    bool frontIs(TokType type) {
+        return cur.type == type;
     }
 
 	Tok front() {
@@ -48,12 +54,14 @@ class Lexer {
 			case '}': cur = lexSingle(TokType.RBrace, ')'); break;
 			case '<': cur = lexSingle(TokType.LessThan, '<'); break;
 			case '#': cur = lexSingle(TokType.Hash, '#'); break;
-			case '\n': cur = lexSingle(TokType.EoL, '\n'); break;
+			case ';': cur = lexSingle(TokType.Semi, '#'); break;
+			case ',': cur = lexSingle(TokType.Comma, '#'); break;
+			case '\n': cur = lexEOL(); break;
 			default: cur = lexError(format("invalid character: '%c' (%x)", c, c)); 
             break;
 		}
 
-        if(cur.type == TokType.Blank) popFront(); // consume blanks
+        if(cur.type == TokType.Blank) popFront(); // ignore blanks
 	}
 
 	Tok consume() {
@@ -72,6 +80,15 @@ class Lexer {
         return Tok(type: TokType.Blank, line: line, col: col);
 	}
 
+    Tok lexEOL() {
+        for(;;) {
+            program.popFront(); col=1; line++;
+            if(program.empty) break;
+            if(program.front != '\n') break;
+        }
+        return Tok(type: TokType.EoL, line: line, col: col);
+    }
+
     Tok lexError(string msg) {
         return Tok(type: TokType.Error, s: msg, line: line, col: col);
     }
@@ -84,13 +101,13 @@ class Lexer {
 			if(program.empty) break;
 			if(program.front < 'a' || program.front > 'z') break;
 		}
-		return Tok(TokType.Identifier, s: s, line: line, col: col);
+		// return Tok(TokType.Identifier, s: s, line: line, col: col);
 		if(s in keywordDict) {
 			Keyword kw = keywordDict[s];
-			return Tok(TokType.Keyword, k: kw, line: line, col: col);
+			return Tok(TokType.Keyword, s:s, k: kw, line: line, col: col);
 		}
 		else {
-			return Tok(TokType.Identifier, s: s, line: line, col: col);
+			return Tok(TokType.Identifier, s:s, line: line, col: col);
 		}
 	}
 
@@ -114,18 +131,27 @@ class Lexer {
 }
 
 
+@("basic tokens")
 unittest {
     auto lex = new Lexer();
-    lex.tokenize("this");
-    assert(lex.front.type == TokType.Identifier && lex.front.s == "this");
 
+    lex.tokenize("12");
+    assert(lex.frontIs(TokType.Integer));
+
+    lex.tokenize("var");
+    assert(lex.front.type == TokType.Keyword && lex.front.k == Keyword.Var);
+}
+
+@("simple statement")
+unittest {
+    auto lex = new Lexer();
     lex.tokenize("var a = 12");
-    assert(lex.front.type == TokType.Identifier);
+    assert(lex.frontIs(TokType.Keyword));
     lex.popFront;
-    assert(lex.front.type == TokType.Identifier);
+    assert(lex.frontIs(TokType.Identifier));
     lex.popFront;
-    assert(lex.front.type == TokType.Assign);
+    assert(lex.frontIs(TokType.Assign));
     lex.popFront;
-    assert(lex.front.type == TokType.Integer);
+    assert(lex.frontIs(TokType.Integer));
 
 }
