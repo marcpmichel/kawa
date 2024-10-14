@@ -1,11 +1,15 @@
 module tokens;
 
 
-enum TokType { EoF, Error, EoL, Blank,
-    Integer, Float, String, Identifier, Keyword, 
-    Assign, LParen, RParen, LBrace, RBrace, 
+enum TokType { NoOp, EoF, Error, EoL, 
+	Blank,
+    Integer, Float, String, Identifier, Keyword, LiteralConstant, // primary
+    Assign, 
+	LParen, RParen, LBrace, RBrace, 
     Add, Sub, Mul, Div, Neg, 
-    Colon, LessThan, GreaterThan, Semi, Comma, Hash 
+	Not,
+	Equal, NEqual, LessThan, GreaterThan, // Comparsion
+    Colon, Semi, Comma, Hash 
 }
 
 
@@ -15,12 +19,13 @@ struct Tok {
 	union {
 		int i;
 		Keyword k;
+		LiteralConstant l;
 	}
     uint line;
     uint col;
 }
 
-enum Keyword { Auto, Undefined, Const, Var, Fun, Return, If }
+enum Keyword { Auto, Undefined, Const, Var, Fun, Return, If, Else }
 
 Keyword[string] keywordDict = [
     "auto": Keyword.Auto,
@@ -29,5 +34,24 @@ Keyword[string] keywordDict = [
 	"var": Keyword.Var,
 	"fun": Keyword.Fun,
 	"return": Keyword.Return,
-	"if": Keyword.If
+	"if": Keyword.If,
+	"else": Keyword.Else,
+	// "true": Keyword.True,
+	// "false": Keyword.False
 ];
+
+enum LiteralConstant { Null, False, True, NaN, Infinity, Undefined }
+
+LiteralConstant[string] literalConstantDict = [
+	"null": LiteralConstant.Null, 
+	"false": LiteralConstant.False, 
+	"true": LiteralConstant.True,
+	"NaN": LiteralConstant.NaN,
+	"infinity": LiteralConstant.Infinity, 
+	"undefined": LiteralConstant.Undefined
+];
+
+enum TokTrue = Tok(type: TokType.LiteralConstant, s: "true", l: LiteralConstant.True);
+enum TokFalse = Tok(type: TokType.LiteralConstant, s: "false", l: LiteralConstant.False);
+enum TokNull = Tok(type: TokType.LiteralConstant, s: "null", l: LiteralConstant.Null);
+

@@ -11,6 +11,7 @@ struct Type {
 }
 
 interface Statement {
+	string toString();
 	string to_c();
 }
 
@@ -29,7 +30,7 @@ class ErrorStatement: Statement {
 	string msg;
 	this(string msg, Tok t, string curline="") {
         string context;
-        if(curline.length > 0) { context = "\n" ~ curline ~ "\n" ~ rightJustify("^", t.col, ' '); }
+        if(curline.length > 0) { context = "\n" ~ curline ~ "\n" ~ rightJustify("^", t.col+1, '.'); }
 		this.msg = format("ParseError: (%d:%d) : %s, got %s %s", t.line, t.col, msg, t.type, context);
 		this.tok = t;
 	}
@@ -37,7 +38,7 @@ class ErrorStatement: Statement {
 		return msg;
 	}
 	string to_c() {
-		return "parse error";
+		return msg;
 	}
 }
 
@@ -51,7 +52,7 @@ class VarStatement: Statement {
 		this.exp = exp;
 	}
 	override string toString() {
-		return format("var %s : %s = %s", name.s, type.literal, exp);
+		return format("[VarStatement] var %s : %s = %s", name.s, type.literal, exp);
 	}
 	string to_c() {
 		return format("%s %s = %s ", type.literal, name.s, exp);
@@ -71,6 +72,42 @@ class ConstStatement: Statement {
 		return "type " ~ name.s ~ " = " ~ value.s;
 	}
 }
+
+class BlockStatement: Statement {
+	Statement[] statements;
+	this(Statement[] statements) {
+		this.statements = statements;
+	}
+	override string toString() {
+		string block = "[BlockStatement] { ";
+		foreach(s; statements) {
+			block ~= s.toString();
+		}
+		block ~= " }";
+		return block;
+	}
+	override string to_c() {
+		return toString();
+	}
+}
+
+class IfStatement: Statement {
+	Expression cond;
+	Statement then;
+	Statement otherwise;
+	this(Expression cond, Statement then, Statement otherwise) {
+		this.cond = cond;
+		this.then = then;
+		this.otherwise = otherwise;
+	}
+	override string toString() {
+		return otherwise is null ? format("[IfStatement] if (%s) %s", cond, then) : format("if(%s) %s else %s", cond, then, otherwise);
+	}
+	override string to_c() {
+		return toString();
+	}
+}
+
 class PodStatement: Statement {
 	Tok name;
 	this(Tok name) {
@@ -132,6 +169,18 @@ class IdentifierExpression: Expression {
     }
 }
 
+class UnaryExpression : Expression {
+	Tok op;
+	Expression e;
+	this(Tok operator, Expression expression) {
+		op = operator;
+		e = expression;
+	}
+	override string toString() {
+		return format("[UnExp] %s(%s)", op.s, e);
+	}
+}
+
 class BinaryExpression: Expression {
     Tok op;
     Expression left, right;
@@ -141,7 +190,7 @@ class BinaryExpression: Expression {
         right = e2;
     }
     override string toString() {
-        return format("(%s) %s (%s)", left, op.s, right);
+        return format("[BinExp] (%s) %s (%s)", left, op.s, right);
     }
 }
 
@@ -154,6 +203,19 @@ class AssignmentExpression: Expression {
         right = e2;
     }
     override string toString() {
-        return format("%s %s %s", left, op.s, right);
+        return format("[AssignmentExp] %s %s %s", left, op.s, right);
     }
+}
+
+class ConditionExpression: Expression {
+	Tok op;
+	Expression left, right;
+	this(Tok operator, Expression e, Expression e2) {
+		op = operator;
+		left = e;
+		right = e2;
+	}
+	override string toString() {
+		return format("[ConditionExpression] (%s) %s (%s)", left, op.s, right);
+	}
 }
