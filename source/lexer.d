@@ -7,23 +7,29 @@ import std.conv;
 class Lexer {
 	string program;
 	Tok cur;
-    uint line = 1;
-    uint col = 1;
-    string curline;
+	Tok prev;
+  uint line = 1;
+  uint col = 1;
+  string curline;
 
-    this() {
-        this.popFront();
-    }
+  this() {
+      this.popFront();
+  }
 
-    void tokenize(string source) {
-        line = 1; col = 1;
-        this.program = source.dup;
-        popFront();
-    }
+  void tokenize(string source) {
+      line = 1; col = 1;
+      this.program = source.dup;
+      popFront();
+  }
 
-    bool frontIs(TokType type) {
-        return cur.type == type;
-    }
+  Tok nextToken() {
+		popFront();
+		return front();
+	}
+	
+	bool frontIs(TokType t) {
+		return cur.type == t;
+	}
 
 	Tok front() {
 		return cur;	
@@ -31,14 +37,14 @@ class Lexer {
 	void popFront() {
         import std.format;
 		if(program.empty) { cur = Tok(TokType.EoF); return; }
-		// if(program.front == ' ' || program.front == '\t') consumeBlank();
-		// if(program.empty) { cur = Tok(TokType.EoF); return; }
+
+		prev = cur;
 
 		dchar c = program.front;
 
 		switch(c) {
             case ' ', '\t': cur = lexBlank(); break; 
-			case '\r', '\n': cur = lexEOL(); break;
+			case '\r', '\n': cur = lexEoL(); break;
 			case 'a': .. case 'z':
 			case 'A': .. case 'Z': cur = lexIdentifier(); break;
 			case '0': .. case '9': cur = lexNumber(); break;
@@ -54,23 +60,24 @@ class Lexer {
 			case '{': cur = lexSingle(TokType.LBrace, '{'); break;
 			case '}': cur = lexSingle(TokType.RBrace, '}'); break;
 			case '<': cur = lexSingle(TokType.LessThan, '<'); break;
-			case '#': cur = lexSingle(TokType.Hash, '#'); break;
-			case ';': cur = lexSingle(TokType.Semi, '#'); break;
-			case ',': cur = lexSingle(TokType.Comma, '#'); break;
+			case '#': cur = lexComment(); break;// lexSingle(TokType.Hash, '#'); break;
+			case ';': cur = lexSingle(TokType.Semi, ';'); break;
+			case ',': cur = lexSingle(TokType.Comma, ','); break;
 			case '!': cur = lexNotOrNeq(); break;
 			default: cur = lexError(format("invalid character: '%c' (%x)", c, c)); 
             break;
 		}
 
         curline ~= cur.s;
-		// version(Debug) { import std.stdio: writeln; writeln(cur); }
+		// version(Debug) { import std.stdio: writeln; writeln("[", cur.type, "]"); }
         if(cur.type == TokType.Blank) popFront(); // ignore blanks
-
+		if(cur.type == TokType.Comment) popFront(); // ignore comments
+		if(cur.type == TokType.EoL) popFront(); // ignore EoL
 	}
 
 	Tok consume() {
 		Tok t = this.front;
-		version(Debug) { import std.stdio:writeln; writeln("consume ", t); }
+		// version(Debug) { import std.stdio:writeln; writeln("consume ", t); }
 		this.popFront;
 		return t;
 	}
@@ -87,7 +94,20 @@ class Lexer {
         return Tok(type: TokType.Blank, s:s, line: line, col: col);
 	}
 
-    Tok lexEOL() {
+	Tok lexComment() {
+		string s;
+		program.popFront(); col++;
+		for(;;) {
+			s ~= program.front;
+			program.popFront(); col++;
+			if(program.empty) break;
+			if(program.front == '\r') { program.popFront(); continue; }
+			if(program.front == '\n') { break; }
+		}
+		return Tok(type: TokType.Comment, s: s, line: line, col: col);
+	}
+
+    Tok lexEoL() {
         for(;;) {
             program.popFront(); col=1; line++;
             if(program.empty) return Tok(TokType.EoF);
@@ -123,13 +143,15 @@ class Lexer {
 
 	Tok lexNumber() {
 		string s;
+		TokType t = TokType.Integer;
 		for(;;) {
 			s ~= program.front;
 			program.popFront(); col++;
 			if(program.empty) break;
+			if(program.front == '.') { t = TokType.Float; continue; }
 			if(program.front < '0' || program.front > '9') break;  // use std.ascii.isDigit ?
 		}
-		return Tok(TokType.Integer, s: s, line: line, col: col);
+		return Tok(t, s, line: line, col: col);
 	}
 	
 	Tok lexString() {
@@ -182,39 +204,3 @@ class Lexer {
 	}
 }
 
-
-@("basic tokens")
-unittest {
-    auto lex = new Lexer();
-
-    lex.tokenize("12");
-    assert(lex.frontIs(TokType.Integer));
-
-    lex.tokenize("var");
-    assert(lex.front.type == TokType.Keyword && lex.front.k == Keyword.Var);
-}
-
-@("lex a few tokens") unittest {
-    auto lex = new Lexer();
-    lex.tokenize("var a = 12");
-    assert(lex.frontIs(TokType.Keyword));
-    lex.popFront;
-    assert(lex.frontIs(TokType.Identifier));
-    lex.popFront;
-    assert(lex.frontIs(TokType.Assign));
-    lex.popFront;
-    assert(lex.frontIs(TokType.Integer));
-}
-
-@("lex identifier") unittest {
-	auto lex = new Lexer();
-	lex.tokenize("abc");
-	assert(lex.frontIs(TokType.Identifier));
-	assert(lex.front.s == "abc");
-}
-
-@("lex not equal") unittest {
-	auto lex = new Lexer();
-	lex.tokenize("!=");
-	assert(lex.frontIs(TokType.NEqual));
-}

@@ -4,7 +4,22 @@ authors "marcp"
 copyright "Copyright © 2024, marcp"
 license "proprietary"
 dependency "silly" version="~>1.1.1" 
-#buildType "unittest" {
-    ## buildOptions "unittests" "debugMode" "debugInfo"
-    #dependency "silly" version="~>1.1.1" 
-#}
+buildOptions "debugInfoC" platform="windows"
+
+configuration "application" {
+  targetType "executable"
+  sourcePath "source/"
+  importPaths "source/"
+  mainSourceFile "source/app.d"
+  targetPath  "."
+}
+configuration "unittest" {
+  targetType "library"
+  targetPath  "."
+  excludedSourceFiles "source/app.d"
+  mainSourceFile "source/app.d"
+  sourcePaths "tests/"
+  importPaths "tests/"
+  dependency "dunit" version=">=1.0.9"
+}
+

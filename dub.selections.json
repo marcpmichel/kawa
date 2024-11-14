@@ -1,6 +1,7 @@
 {
 	"fileVersion": 1,
 	"versions": {
+		"dunit": "1.0.16",
 		"silly": "1.1.1"
 	}
 }

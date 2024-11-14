@@ -6,19 +6,27 @@ import lexer;
 struct ParseError {
     string message;
     Tok token;
+    string curline;
+    uint line;
+    uint col;
 }
 
-alias StatementList = Statement[];
+
+// TODO: write a propper grammar
+// like C : only declarations at top level !
+
 
 class Parser {
 	Lexer lexer;
     bool has_errored;
     ParseError error;
     int block_level;
+    Tok curTok;
 
 	this(string program) {
 		lexer = new Lexer();
         lexer.tokenize(program);
+        curTok = lexer.front;
 	}
 
     Statement[] parse() {
@@ -28,97 +36,107 @@ class Parser {
     ErrorStatement parseError(string msg, Tok token=Tok(TokType.Error)) {
         Tok t = token.type == TokType.Error ? lexer.front : token;
         this.has_errored = true;
-        this.error = ParseError(msg, t);
-        return new ErrorStatement(msg, t, lexer.curline);
+        this.error = ParseError(msg, t, lexer.curline);
+        return null;
     }
 
-    void printError(ErrorStatement stmt) {
-        import std.stdio : writeln;
-        writeln(stmt);
+    string formatError() {
+        import std.string : rightJustify;
+        import std.format : format;
+        ParseError err = this.error;
+        string context;
+        if(err.curline.length > 0) { context = "\n" ~ err.curline ~ "\n" ~ rightJustify("^", err.token.col+1, '.'); }
+		return format("ParseError: (%d:%d) : %s, got %s %s", 
+		    err.token.line, err.token.col, err.message, err.token.type, context);
     }
 
-	bool expect(TokType type) {
-		if(lexer.front.type == type) {
-            version(Debug) { import std.stdio: writeln; writeln("expect: true for ", type); }
-			lexer.popFront;
-			return true;
-		}
-		return false;
-	}
-	
-	bool check(Tok t, TokType type) {
-		return t.type == type;
-	}
+    void printError() {
+        import std.stdio: writeln;
+        writeln(formatError());
+    }
+
 
     bool isToken(TokType type) {
-        return lexer.front.type == type;
+        return curTok.type == type;
     }
 
     bool isKeyword(Keyword k) {
-        return lexer.front.type == TokType.Keyword && lexer.front.k == k;
+        return curTok.type == TokType.Keyword && curTok.k == k;
+    }
+
+    Tok consume(TokType t, string msg="") {
+        import std.format: format;
+        if(curTok.type != t) parseError(format("Unexpected token %s %s", curTok.type, msg));
+        return consume();
+    }
+    Tok consume() {
+        Tok tok = curTok;
+        curTok = lexer.nextToken();
+        return tok;
     }
 
     Statement[] parseStatementList() {
         Statement[] statements;
         for(;;) {
-            if(isToken(TokType.EoL)) { lexer.popFront(); } // ignoring leading EoL
-            if(block_level > 0 && isToken(TokType.RBrace)) break; // end of block = end of list
+            if(isToken(TokType.EoF)) break; // end of program
+            if(isToken(TokType.EoL)) { consume(TokType.EoL); continue; }// end of statement
+            if(block_level>0 && isToken(TokType.RBrace)) break; // end of block
 
             Statement stmt = parseStatement();
             if(stmt is null) break;  // EoF
-            if(cast(ErrorStatement)stmt !is null) { printError(cast(ErrorStatement)stmt); return []; }
-
+            // if(cast(ErrorStatement)stmt !is null) { printError(cast(ErrorStatement)stmt); return []; }
+            if(this.has_errored) { printError(); return statements; }
             statements ~= stmt;
 
+            // parseError("expected EoL, EoF or } (end of statement)");
+            // return null;
         }
         return statements;
     }
 
 	Statement parseStatement() {
-        version(Debug) { import std.stdio:writeln; writeln("parseStatement"); }
-		Tok t = lexer.front;
-        if(t.type == TokType.EoF) return null;
+        if(isToken(TokType.EoF)) return null;
         Statement stmt;
 
-        switch(lexer.front.type) {
-            case TokType.Keyword: stmt = parseKeyword(); break;
-            case TokType.Identifier: stmt = parseAssignment(); break;
-            case TokType.EoF: return null;
-            default: return parseError("syntax error");
+        switch(curTok.type) {
+            case TokType.Keyword: return parseKeyword();
+            case TokType.Identifier: return parseAssignment();
+            default: parseError("syntax error (unknown statement)"); return null;
         }
 
         /* a statement ends with: EoL, EoF (if last line), '}' (last statement in a block) */
-        if(isToken(TokType.EoL) || isToken(TokType.EoF)) return stmt;
-        if(block_level > 0 && isToken(TokType.RBrace)) return stmt; // end of block
+        // if(isToken(TokType.EoL) || isToken(TokType.EoF)) return stmt;
+        // if(block_level > 0 && isToken(TokType.RBrace)) return stmt; // end of block
 
-        return parseError("expected EoL, EoF or }"); 
+        // return parseError("expected EoL, EoF or } (end of statement)"); 
+        assert(false, "unreachable");
 	}
 
     Statement parseKeyword() {
-        Tok t = lexer.consume(); // consume keyword
+        Tok t = consume(TokType.Keyword);
+
         switch(t.k) {
             case Keyword.Var: return parseVar(); break;
             case Keyword.If: return parseIf(); break;
-            default: return parseError("unexpected keyword");
+            case Keyword.While: return parseWhile(); break;
+            case Keyword.Fun: return parseFunctionDeclaration(); break;
+            case Keyword.Return: return parseReturn(); break;
+            case Keyword.Pod: return parsePod(); break;
+            default: parseError("unexpected keyword");
         }
         assert(0);
     }
 
-    // bool isEndOfStatement() {
-    //     if(isToken(TokType.EoL)) return true;
-    //     if(block_level > 0 && isToken(TokType.RBrace)) return true;
-    //     return false;
-    // }
-
     Type parseType() {
-        Tok t = lexer.consume();
-        switch(t.type) {
+        switch(curTok.type) {
             case TokType.Keyword: 
-                if(t.k != Keyword.Auto) return Type(TypeKind.Error, "type bug");
+                if(!isKeyword(Keyword.Auto)) return Type(TypeKind.Error, "type bug");
+                consume(TokType.Keyword);
                 return Type(TypeKind.Auto);
             break;
             case TokType.Identifier:
-                return Type(TypeKind.Decl, t.s);
+                Tok tok = consume(TokType.Identifier);
+                return Type(TypeKind.Decl, tok.s);
             break;
             default: 
                 return Type(TypeKind.Error, "bad type");
@@ -126,21 +144,20 @@ class Parser {
     }
 
     Statement parseVar() {
-        Tok name = lexer.consume();
-        if(!check(name, TokType.Identifier)) return parseError("expected identifier", name);
+        Tok name = consume(TokType.Identifier, "expected identifier");
 
         Type type;
         if(isToken(TokType.Colon)) {
-            Tok colon = lexer.consume();
+            Tok colon = consume(TokType.Colon);
             type = parseType();
-            if(type.kind == TypeKind.Error) return parseError("bad type qualifier", colon);
+            if(type.kind == TypeKind.Error) parseError("bad type qualifier", colon);
         }
         else {
             type = Type(TypeKind.Auto, "auto");
         }
 
         if(isToken(TokType.Assign)) {
-            lexer.consume();
+            consume(TokType.Assign);
             Expression e = parseExpression();
             return new VarStatement(name, type, e);
         }
@@ -153,50 +170,113 @@ class Parser {
         Expression cond = parseCondition();
         Statement then = parseBlock();
         if(isKeyword(Keyword.Else)) {
-            lexer.consume(); // else
+            consume(TokType.Keyword); // else
             Statement otherwise = parseBlock();
             return new IfStatement(cond, then, otherwise);
         }
         return new IfStatement(cond, then, null);
     }
     
+    Statement parseWhile() {
+        Expression cond = parseCondition();
+        Statement block = parseBlock();
+        return new WhileStatement(cond, block);
+    }
+
+    Statement parseFunctionDeclaration() {
+        Tok name = consume(TokType.Identifier);
+
+        consume(TokType.LParen);
+        ArgumentList list = parseArgumentList();
+        consume(TokType.RParen);
+
+        Type type;
+        if(isToken(TokType.Colon)) {
+            consume();
+            type = parseType();
+        }
+        Statement block = parseBlock();
+        return new FunctionDeclaration(name,  type, list, block);
+    }
+
+    Statement parseReturn() {
+        Expression e = parseExpression();
+        return new ReturnStatement(e);
+    }
+
+    ArgumentList parseArgumentList() {
+       ArgumentList list;
+       if(isToken(TokType.RParen)) return list; // empty list
+
+       for(;;) {
+            if(isToken(TokType.EoF)) { parseError("EoF in argument list"); break; }
+            Argument arg = parseArgument();
+            if(arg is null) { parseError("wrong argument declaration"); break; }
+            list ~= arg;
+            if(isToken(TokType.RParen)) break; // end of list
+            consume(TokType.Comma);
+       }
+       return list;
+    }
+
+    Argument parseArgument() {
+       Tok id = consume(TokType.Identifier);
+       consume(TokType.Colon, "expected type declaration");
+       Type type = parseType();
+       return new Argument(id, type);
+    }
+    
     Expression parseCondition() {
         bool in_parens;
-        if(isToken(TokType.LParen)) { lexer.consume(); in_parens = true; }
+        if(isToken(TokType.LParen)) { 
+            consume(TokType.LParen); in_parens = true;
+        }
         Expression e = parseExpression();
 
         if(isToken(TokType.Equal) || isToken(TokType.NEqual)) {
-            Tok op = lexer.consume();
+            Tok op = consume();
             Expression e2 = parseExpression();
-            if (in_parens && !expect(TokType.RParen)) return cast(Expression) parseError("expecting )");
+            if (in_parens) consume(TokType.RParen);
             return new ConditionExpression(op, e, e2);
         }
         else {
-            Tok eq = Tok(TokType.Equal, s:"==");
-            if(in_parens && !expect(TokType.RParen)) return cast(Expression)parseError("expecting )");
+            Tok eq = Tok(TokType.Equal, "==");
+            if(in_parens) consume(TokType.RParen);
             Expression e2 = new LiteralExpression(TokTrue);
             return new ConditionExpression(eq, e, e2);
         }
     }
 
     Statement parseBlock() {
-        version(Debug) { import std.stdio: writeln; writeln("# parseBlock()"); }
-        if(!expect(TokType.LBrace)) return parseError("expecting {");
+        Statement[] statements;
+        consume(TokType.LBrace);
         block_level++;
-        Statement[] statements = parseStatementList();
-        if(!expect(TokType.RBrace)) return parseError("expecting }");
+        statements = parseStatementList();
+        consume(TokType.RBrace);
         block_level--;
         return new BlockStatement(statements);
     }
 
+	Statement parsePod() {
+        Tok name = consume(TokType.Identifier);
+        consume(TokType.LBrace);
+        Statement[] declarations;
+        for(;;) {
+            declarations ~= parseVar();
+            if(isToken(TokType.RBrace)) break;
+        }
+        consume(TokType.RBrace);
+		return new PodStatement(name, declarations);
+	}
+
     Expression parseAssignment() {
         Expression e = parseIdentifier();
         if(typeid(e) != typeid(IdentifierExpression)) {
-            return cast(Expression)parseError("invalid left-hand size for assignment");
+            return cast(Expression)parseError("invalid left-hand side for assignment");
         }
-        Tok op = lexer.consume(); // TODO: add +=, -=, *=, /=, %=, ++, -- 
+        Tok op = consume(TokType.Assign); // TODO: add +=, -=, *=, /=, %=, ++, -- 
         // Note: x++ => x += 1 => x = x + 1
-        if(op.type != TokType.Assign) return cast(Expression)parseError("expected assignment operator");
+        /* if(op.type != TokType.Assign) parseError("expected assignment operator"); */
 
         Expression e2 = parseExpression();
         // import std.stdio: writeln; writeln(e2);
@@ -211,7 +291,7 @@ class Parser {
     Expression parseTerm() {
         Expression e = parseFactor();
         while(isToken(TokType.Add) || isToken(TokType.Sub)) {
-            Tok op = lexer.consume();
+            Tok op = consume();
             Expression e2 = parseFactor();
             e = new BinaryExpression(op, e, e2);
         }
@@ -221,7 +301,7 @@ class Parser {
     Expression parseFactor() {
         Expression e = parseUnary();
         while(isToken(TokType.Mul) || isToken(TokType.Div)) {
-            Tok op = lexer.consume();
+            Tok op = consume();
             Expression e2 = parseUnary();
             e = new BinaryExpression(op, e, e2);
         }
@@ -229,8 +309,8 @@ class Parser {
     }
 
     Expression parseUnary() {
-        if(lexer.front.type == TokType.Sub || lexer.front.type == TokType.Not) {
-            Tok op = lexer.consume();
+        if(curTok.type == TokType.Sub || curTok.type == TokType.Not) {
+            Tok op = consume();
             Expression e = parsePrimary();
             return new UnaryExpression(op, e);
         }
@@ -240,7 +320,7 @@ class Parser {
     }
 
     Expression parsePrimary() {
-        switch(lexer.front.type) {
+        switch(curTok.type) {
             case TokType.LParen: return parseParenExpression();
             case TokType.Identifier: return parseIdentifier();
             case TokType.String:
@@ -252,119 +332,45 @@ class Parser {
     }
 
     Expression parseParenExpression() {
-        lexer.consume(); // (
+        consume(TokType.LParen); // (
         Expression e = parseExpression();
-        if(!expect(TokType.RParen)) return cast(Expression)parseError("expected ')'");
+        consume(TokType.RParen);
         return e;
     }
     
     Expression parseIdentifier() {
-        Tok id = lexer.consume();
-        return new IdentifierExpression(id);
+        Tok id = consume(TokType.Identifier);
+        if(isToken(TokType.LParen)) {
+            return new CallExpression(id, parseExpressionList());
+        }
+        else 
+            return new IdentifierExpression(id);
+    }
+
+    ExpressionList parseExpressionList() {
+        ExpressionList list = new ExpressionList();
+        consume(TokType.LParen);
+        if(isToken(TokType.RParen)) return list;
+        for(;;) {
+            list.add(parseExpression());
+            if(isToken(TokType.RParen)) break;
+            consume(TokType.Comma);
+        }
+        consume(TokType.RParen);
+        return list;
     }
 
     Expression parseLiteral() {
-        Tok lit = lexer.consume();
-        return new LiteralExpression(lit);
+        with(TokType) {
+            switch(curTok.type) {
+                case Integer: return new IntegerLiteral(consume(Integer));
+                case Float: return new FloatLiteral(consume(Float));
+                case String: return new StringLiteral(consume(String));
+                default: parseError("unknown literal");
+            }
+        }
+        assert(false, "impossible");
     }
 
-    /*
-	Statement parseDecl(Tok name, bool isVar) {
-		Tok type = lexer.consume;
-		//if(!check(type, TokType.Identifier)) return new ErrorStatement("expected type", lexer.front);
-		if(!expect(TokType.Assign)) return new ErrorStatement("expected '='", lexer.front, lexer.curline);
-		Tok value = lexer.consume;
-		if(!check(value, TokType.Integer)) return new ErrorStatement("expected value", lexer.front, lexer.curline);
-		if(isVar) {
-			return new VarStatement(name, type, value);
-		}
-		else {
-			return new ConstStatement(name, type, value);
-		}
-	}
-    */
-
-	Statement parsePod(Tok name) {
-		for(;;) {
-			if(lexer.front.type == TokType.EoF) break;
-			if(lexer.front.type == TokType.RBrace) { lexer.popFront; break; }
-			lexer.popFront();
-		}
-		return new PodStatement(name);
-	}
-
 }
 
-@("parsing var x : auto = 1 + 2") unittest {
-    auto parser = new Parser("var x : auto = 1 + 2");
-    Statement[] ss = parser.parse();
-    assert(ss.length == 1);
-}
-
-@("parsing var = 12") unittest {
-	auto parser = new Parser("var x = 12");
-	Statement[] statements = parser.parse();
-	assert(statements.length == 1, "expected one statement");
-    assert(cast(VarStatement)statements[0] !is null);
-    auto stmt = cast(VarStatement)statements[0];
-    assert(cast(LiteralExpression)stmt.exp !is null, "not a literal exp");
-    auto exp = cast(LiteralExpression)stmt.exp;
-    // assert(typeid(exp.value) == typeid(Tok));
-    // import std.stdio: writeln; writeln(exp.value.type);
-    // assert(exp.value.type == TokType.Integer);
-}
-
-@("parsing var x : int = 12") unittest {
-	auto parser = new Parser("var x : int = 12");
-	Statement[] statements = parser.parse();
-	assert(statements.length == 1, "expected one statement");
-}
-
-@("multiple var statements") unittest {
-    auto sl = new Parser("var x = 2 + 3\n\n\nvar y = 3").parse();
-    assert(sl.length == 2, "expected two statements");
-}
-
-@("assignment: x=12+2") unittest {
-    auto sl = new Parser("x = 12 + 2").parse();
-    import std.format: format;
-    assert(sl.length == 1, format("expected one statement, got %d", sl.length));
-}
-
-@("parse unary") unittest {
-    StatementList sl = new Parser("x = !y").parse();
-    assert(sl.length == 1, "cannot parse unary expression");
-}
-
-@("parse condition") unittest {
-    auto s = new Parser("(x == y)").parseCondition();
-    assert(cast(ConditionExpression)s !is null, "not a condition expression !");
-}
-
-// @("parse two conditions") unittest {
-//     auto p = new Parser("(x == y)\nola == true");
-//     auto s = p.parseCondition();
-//     assert(cast(ConditionExpression)s !is null, "not a condition expression !");
-//     auto s2 = p.parseCondition();
-//     assert(cast(ConditionExpression)s2 !is null, "not a condition expression !");
-//     auto ss = cast(ConditionExpression)s2;
-//     assert(cast(IdentifierExpression)(ss.left) !is null, "not an identifier expression");
-// }
-
-@("parse block") unittest {
-    auto s = new Parser("{ var x = 1 }").parseBlock();
-    assert(cast(BlockStatement)s !is null, "not a block statement !");
-    auto s2 = new Parser("{var a=2\nvar b = 12}").parseBlock();
-    assert((cast(BlockStatement)s2).statements.length == 2, "expected 2 statements");
-}
-
-@("parse error") unittest {
-    auto s = new Parser("var \n").parseVar();
-    assert((cast(ErrorStatement)s !is null));
-}
-
-@("parse if") unittest {
-    auto s = new Parser("if(x == 1) { ola = true }").parseIf();
-    assert(cast(IfStatement)s !is null, "not an if statement");
-    assert(cast(ErrorStatement)s is null);
-}

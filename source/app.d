@@ -5,12 +5,34 @@ import parser;
 import statements;
 import std.file;
 
-string test_program = `var x = 12
-x = x + 1
-z = "ola"
-var y:int = (1 + 2) * 3
-x = -12
-b = !a
+// string test_program = `var x = 12
+// x = x + 1
+// z = "ola"
+// var y:int = (1 + 2) * 3
+// x = -12
+// b = !a
+// `;
+
+// string test_program = `fun agla(x : int) {
+// 	return x * x
+// }`;
+
+string test_program = `
+# testing functions
+
+fun wazoo(x: int) {
+    return x * x
+}
+
+var first = 1
+
+if(first) {
+	return "hello"
+}
+
+fun excellent(x:int, y:int) :int {
+    return x * y
+}
 `;
 
 version(unittest) {

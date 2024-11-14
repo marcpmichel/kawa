@@ -2,7 +2,7 @@ module tokens;
 
 
 enum TokType { NoOp, EoF, Error, EoL, 
-	Blank,
+	Blank, Comment, // ignored
     Integer, Float, String, Identifier, Keyword, LiteralConstant, // primary
     Assign, 
 	LParen, RParen, LBrace, RBrace, 
@@ -18,6 +18,7 @@ struct Tok {
     string s;
 	union {
 		int i;
+		float f;
 		Keyword k;
 		LiteralConstant l;
 	}
@@ -25,19 +26,18 @@ struct Tok {
     uint col;
 }
 
-enum Keyword { Auto, Undefined, Const, Var, Fun, Return, If, Else }
+enum Keyword { Auto, Const, Var, Fun, Return, If, Else, While, Pod }
 
 Keyword[string] keywordDict = [
     "auto": Keyword.Auto,
-    "undefined": Keyword.Undefined,
 	"const": Keyword.Const,
 	"var": Keyword.Var,
 	"fun": Keyword.Fun,
 	"return": Keyword.Return,
 	"if": Keyword.If,
 	"else": Keyword.Else,
-	// "true": Keyword.True,
-	// "false": Keyword.False
+	"while": Keyword.While,
+	"pod": Keyword.Pod
 ];
 
 enum LiteralConstant { Null, False, True, NaN, Infinity, Undefined }

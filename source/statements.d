@@ -10,6 +10,9 @@ struct Type {
     string literal;
 }
 
+alias ArgumentList = Argument[];
+alias StatementList = Statement[];
+
 interface Statement {
 	string toString();
 	string to_c();
@@ -101,7 +104,70 @@ class IfStatement: Statement {
 		this.otherwise = otherwise;
 	}
 	override string toString() {
-		return otherwise is null ? format("[IfStatement] if (%s) %s", cond, then) : format("if(%s) %s else %s", cond, then, otherwise);
+		return otherwise is null ? format("[IfStatement] if (%s) %s", cond, then) : format("[IfStatement] if(%s) %s else %s", cond, then, otherwise);
+	}
+	override string to_c() {
+		return toString();
+	}
+}
+
+class WhileStatement: Statement {
+	Expression cond;
+	Statement block;
+	this(Expression cond, Statement block) {
+		this.cond = cond;
+		this.block = block;
+	}
+	override string toString() {
+		return format("[whileStatement] while(%s) { %s}", cond, block);
+	}
+	override string to_c() {
+		return toString();
+	}
+}
+
+class Argument: Statement {
+	Tok id;
+	Type type;
+	this(Tok id, Type type) {
+		this.id = id;
+		this.type = type;
+	}
+	override string toString() {
+		return format("%s : %s", id.s, type);
+	}
+	override string to_c() {
+		return format("%s %s", type, id.s);
+	}
+}
+
+
+class FunctionDeclaration: Statement {
+	Tok name;
+	Type type;
+	ArgumentList list;
+	Statement block;
+	this(Tok name, Type type, ArgumentList list, Statement block) {
+		this.name = name;
+		this.type = type;
+		this.list = list;
+		this.block = block;
+	}
+	override string toString() {
+		return format("[FunctionDeclaration] fun %s (%s) : %s { %s }", name.s, list, type, block);
+	}
+	override string to_c() {
+		return toString();
+	}
+}
+
+class ReturnStatement : Statement {
+	Expression e;
+	this(Expression exp) {
+		this.e = exp;
+	}
+	override string toString() {
+		return format("return %s", e);
 	}
 	override string to_c() {
 		return toString();
@@ -110,16 +176,21 @@ class IfStatement: Statement {
 
 class PodStatement: Statement {
 	Tok name;
-	this(Tok name) {
+	Statement[] declarations;
+	this(Tok name, Statement[] declarations) {
 		this.name = name;
+		this.declarations = declarations;
 	}
 	override string toString() {
-		return "pod "~ name.s ~"{ ... }";
+		string decl;
+		foreach(d; declarations) { decl ~= d.toString(); }
+		return "pod "~ name.s ~"{ " ~ decl ~ " }";
 	}
 	string to_c() {
 		return "typedef struct { ... } " ~ name.s;
 	}
 }
+
 class FunctionStatement: Statement {
 	Tok name;
 	this(Tok name) {
@@ -143,6 +214,28 @@ class Expression: Statement {
 }
 
 class EmptyExpression : Expression {
+    override string toString() {
+        return "<empty expression>";
+    }
+    override string to_c() {
+        return "<empty expression>";
+    }
+}
+
+class CallExpression: Expression {
+	string id;
+	ExpressionList list;
+	this(Tok tok, ExpressionList list) {
+		id = tok.s;
+		this.list = list;
+	}
+}
+
+class ExpressionList : Expression {
+	Expression[] expressions;
+	void add(Expression e) {
+		expressions ~= e;
+	}
 }
 
 class LiteralExpression: Expression {
@@ -157,6 +250,25 @@ class LiteralExpression: Expression {
             default: return format("<%s>", value.s);
         }
     }
+}
+
+class IntegerLiteral: Expression {
+	int value;
+	this(Tok t) {
+		value = t.i;
+	}
+}
+class FloatLiteral: Expression {
+	float value;
+	this(Tok t) {
+		value = t.f;
+	}
+}
+class StringLiteral: Expression {
+	string value;
+	this(Tok t) {
+		value = t.s;
+	}
 }
 
 class IdentifierExpression: Expression {
