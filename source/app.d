@@ -2,41 +2,7 @@ module main;
 
 import std.stdio;
 import parser;
-import statements;
 import std.file;
-import generator;
-
-// string test_program = `var x = 12
-// x = x + 1
-// z = "ola"
-// var y:int = (1 + 2) * 3
-// x = -12
-// b = !a
-// `;
-
-// string test_program = `fun agla(x : int) {
-// 	return x * x
-// }`;
-
-/*
-string test_program = `
-# testing functions
-
-fun wazoo(x: int) {
-    return x * x
-}
-
-var first = 1
-
-if(first) {
-	return "hello"
-}
-
-fun excellent(x:int, y:int) :int {
-    return x * y
-}
-`;
-*/
 
 string test_program = `
 var r:float = 144
@@ -92,25 +58,18 @@ version(unittest) {
 		}
 		else {
 			writeln("--- parsed statements ---");
-			/* import sexpression_builder; */
-			/* auto v = new SExpressionVisitor(); */
-			import clang_builder;
-			auto v = new ClangVisitor();
+
+			/* import clang_builder; */
+			/* auto v = new ClangVisitor(); */
+			import sexpression_builder;
+			auto v = new SExpressionVisitor();
 			foreach(n; nodes) { 
 				n.accept(v); 
 				writeln(v.stack.pop());
 			}
-			// return 0;
 		}
 	
-		// lexical analysis
-
-		// evaluation
-		// auto context = new Context('x');
-		
 		writeln("---------------------");
-		/* auto generator = new Generator(); */
-		/* generator.generate(statements); */
 
 		return 0;
 	}

@@ -19,7 +19,7 @@ class Context {
   }
 
   bool exists(string name) {
-    import std.algorithm: find, count;
-    return vars.find!(v => v.name == name) !is null;
+    import std.algorithm: canFind;
+    return vars.canFind!(v => v.name == name);
   }
 }

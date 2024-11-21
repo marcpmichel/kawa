@@ -70,7 +70,6 @@ class Lexer {
 		}
 
     curline ~= cur.s;
-		// version(Debug) { import std.stdio: writeln; writeln("[", cur.type, "]"); }
     if(cur.type == TokType.Blank) popFront(); // ignore blanks
 		if(cur.type == TokType.Comment) popFront(); // ignore comments
 		if(cur.type == TokType.EoL) popFront(); // ignore EoL
@@ -78,7 +77,6 @@ class Lexer {
 
 	Tok consume() {
 		Tok t = this.front;
-		// version(Debug) { import std.stdio:writeln; writeln("consume ", t); }
 		this.popFront;
 		return t;
 	}

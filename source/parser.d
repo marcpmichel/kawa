@@ -1,6 +1,5 @@
 module parser;
 
-// import statements;
 import lexer;
 import ast_nodes;
 
