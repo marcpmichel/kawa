@@ -90,7 +90,12 @@ class BlockStatement: Statement {
 		return block;
 	}
 	override string to_c() {
-		return toString();
+		string block = "{ ";
+		foreach(s; statements) {
+			block ~= s.to_c();
+		}
+		block ~= " }";
+		return block;
 	}
 }
 
@@ -107,7 +112,9 @@ class IfStatement: Statement {
 		return otherwise is null ? format("[IfStatement] if (%s) %s", cond, then) : format("[IfStatement] if(%s) %s else %s", cond, then, otherwise);
 	}
 	override string to_c() {
-		return toString();
+		return otherwise is null ? 
+			format("if(%s) %s", cond, then) : 
+			format("if(%s) %s else %s", cond, then, otherwise);
 	}
 }
 
@@ -122,7 +129,7 @@ class WhileStatement: Statement {
 		return format("[whileStatement] while(%s) { %s}", cond, block);
 	}
 	override string to_c() {
-		return toString();
+		return format("while(%s) %s", cond, block);
 	}
 }
 
@@ -157,7 +164,7 @@ class FunctionDeclaration: Statement {
 		return format("[FunctionDeclaration] fun %s (%s) : %s { %s }", name.s, list, type, block);
 	}
 	override string to_c() {
-		return toString();
+		return format("%s %s(%s) %s", type, name, list, block);
 	}
 }
 
@@ -191,19 +198,6 @@ class PodStatement: Statement {
 	}
 }
 
-class FunctionStatement: Statement {
-	Tok name;
-	this(Tok name) {
-		this.name = name;
-	}
-	override string toString() {
-		return "fun " ~ name.s ~ "() {}";
-	}
-	string to_c() {
-		return "type " ~ name.s ~ "() {}";
-	}
-}
-
 class Expression: Statement {
     override string toString() {
         return "<expression>";
@@ -218,7 +212,7 @@ class EmptyExpression : Expression {
         return "<empty expression>";
     }
     override string to_c() {
-        return "<empty expression>";
+        return "/*empty exp*/";
     }
 }
 
@@ -229,6 +223,8 @@ class CallExpression: Expression {
 		id = tok.s;
 		this.list = list;
 	}
+	override string toString() {  return format("%s(%s)", id, list); }
+	override string to_c() { return format("%s(%s)", id, list); }
 }
 
 class ExpressionList : Expression {
@@ -236,20 +232,33 @@ class ExpressionList : Expression {
 	void add(Expression e) {
 		expressions ~= e;
 	}
+	override string toString() { 
+		import std.algorithm;
+		import std.array;
+		return expressions.map!(a => a.toString).join(", ");
+	}
+	override string to_c() {
+		import std.algorithm;
+		import std.array;
+		return expressions.map!(a => a.to_c).join(", ");
+	}
 }
 
 class LiteralExpression: Expression {
-    Tok value;
-    this(Tok value) {
-        this.value = value;
+  Tok value;
+  this(Tok value) {
+    this.value = value;
+  }
+  override string toString() {
+    switch(value.type) {
+    	case TokType.Integer: return value.s;
+    	case TokType.String: return format("\"%s\"", value.s);
+    	default: return format("<%s>", value.s);
     }
-    override string toString() {
-        switch(value.type) {
-            case TokType.Integer: return value.s;
-            case TokType.String: return format("\"%s\"", value.s);
-            default: return format("<%s>", value.s);
-        }
-    }
+  }
+  override string to_c() {
+		return "/* literal expression */";
+  }
 }
 
 class IntegerLiteral: Expression {
@@ -257,18 +266,36 @@ class IntegerLiteral: Expression {
 	this(Tok t) {
 		value = t.i;
 	}
+	override string toString() { return format("%d", value); }
+	override string to_c() { return format("%d", value); }
 }
+
 class FloatLiteral: Expression {
 	float value;
 	this(Tok t) {
 		value = t.f;
 	}
+	override string toString() { return format("%f", value); }
+	override string to_c() { return format("%f", value); }
 }
+
 class StringLiteral: Expression {
 	string value;
 	this(Tok t) {
 		value = t.s;
 	}
+	override string toString() { return format("%s", value); }
+	override string to_c() { return format("%s", value); }
+}
+
+class ConstantLiteral: Expression {
+	// LiteralConstant lit;
+	Tok lit;
+	this(Tok t) {
+		lit = t;
+	}
+	override string toString() { return format("%s", lit.s); }
+	override string to_c() { return format("%s", lit.s); }
 }
 
 class IdentifierExpression: Expression {
@@ -276,9 +303,8 @@ class IdentifierExpression: Expression {
     this(Tok ident) {
         this.id = ident;
     }
-    override string toString() {
-        return id.s;
-    }
+    override string toString() { return id.s; }
+    override string to_c() { return id.s; }
 }
 
 class UnaryExpression : Expression {
@@ -288,9 +314,8 @@ class UnaryExpression : Expression {
 		op = operator;
 		e = expression;
 	}
-	override string toString() {
-		return format("[UnExp] %s(%s)", op.s, e);
-	}
+	override string toString() { return format("[UnExp] %s(%s)", op.s, e); }
+	override string to_c() { return format("%s%s", op.s, e); }
 }
 
 class BinaryExpression: Expression {
@@ -301,9 +326,8 @@ class BinaryExpression: Expression {
         left = e;
         right = e2;
     }
-    override string toString() {
-        return format("[BinExp] (%s) %s (%s)", left, op.s, right);
-    }
+    override string toString() { return format("[BinExp] (%s) %s (%s)", left, op.s, right); }
+    override string to_c() { return format("%s %s %s", left, op.s, right); }
 }
 
 class AssignmentExpression: Expression {
@@ -314,9 +338,8 @@ class AssignmentExpression: Expression {
         left = e;
         right = e2;
     }
-    override string toString() {
-        return format("[AssignmentExp] %s %s %s", left, op.s, right);
-    }
+    override string toString() { return format("[AssignmentExp] %s %s %s", left, op.s, right); }
+    override string to_c() { return format("%s %s %s", left, op.s, right); }
 }
 
 class ConditionExpression: Expression {
@@ -327,7 +350,7 @@ class ConditionExpression: Expression {
 		left = e;
 		right = e2;
 	}
-	override string toString() {
-		return format("[ConditionExpression] (%s) %s (%s)", left, op.s, right);
-	}
+	override string toString() { return format("[ConditionExpression] (%s) %s (%s)", left, op.s, right); }
+	override string to_c() { return format("(%s) %s (%s)", left, op.s, right); }
 }
+

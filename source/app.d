@@ -4,6 +4,7 @@ import std.stdio;
 import parser;
 import statements;
 import std.file;
+import generator;
 
 // string test_program = `var x = 12
 // x = x + 1
@@ -17,6 +18,7 @@ import std.file;
 // 	return x * x
 // }`;
 
+/*
 string test_program = `
 # testing functions
 
@@ -33,6 +35,29 @@ if(first) {
 fun excellent(x:int, y:int) :int {
     return x * y
 }
+`;
+*/
+
+string test_program = `
+var r:float = 144
+
+pod Vector {
+	x: float = 0
+	y: float = 0
+}
+
+fun square(x: int) :int {
+	return x * x
+}
+
+fun main() : int {
+	var v:Vector;
+
+	var x:int = square(12);
+
+	return x;
+}
+
 `;
 
 version(unittest) {
@@ -55,19 +80,39 @@ version(unittest) {
 
 		writeln("--- parsing ---");
 		auto parser = new Parser(code);
-		Statement[] statements = parser.parse();
+		import ast_nodes;
+		ASTNode[] nodes = parser.parse();
 		if(parser.has_errored) {
 			writeln("--- parse error ! ---");
-			writeln(parser.error);
+			foreach(err; parser.formatErrors()) {
+				writeln(err);
+			}
 			writeln("---------------------");
 			return 2;
 		}
 		else {
 			writeln("--- parsed statements ---");
-			foreach(s; statements) { writeln(s); }
-			return 0;
+			/* import sexpression_builder; */
+			/* auto v = new SExpressionVisitor(); */
+			import clang_builder;
+			auto v = new ClangVisitor();
+			foreach(n; nodes) { 
+				n.accept(v); 
+				writeln(v.stack.pop());
+			}
+			// return 0;
 		}
+	
+		// lexical analysis
 
+		// evaluation
+		// auto context = new Context('x');
+		
+		writeln("---------------------");
+		/* auto generator = new Generator(); */
+		/* generator.generate(statements); */
+
+		return 0;
 	}
 }
 

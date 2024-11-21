@@ -35,7 +35,7 @@ class Lexer {
 		return cur;	
 	}
 	void popFront() {
-        import std.format;
+    import std.format;
 		if(program.empty) { cur = Tok(TokType.EoF); return; }
 
 		prev = cur;
@@ -43,7 +43,7 @@ class Lexer {
 		dchar c = program.front;
 
 		switch(c) {
-            case ' ', '\t': cur = lexBlank(); break; 
+      case ' ', '\t': cur = lexBlank(); break; 
 			case '\r', '\n': cur = lexEoL(); break;
 			case 'a': .. case 'z':
 			case 'A': .. case 'Z': cur = lexIdentifier(); break;
@@ -60,6 +60,7 @@ class Lexer {
 			case '{': cur = lexSingle(TokType.LBrace, '{'); break;
 			case '}': cur = lexSingle(TokType.RBrace, '}'); break;
 			case '<': cur = lexSingle(TokType.LessThan, '<'); break;
+			case '>': cur = lexSingle(TokType.LessThan, '>'); break;
 			case '#': cur = lexComment(); break;// lexSingle(TokType.Hash, '#'); break;
 			case ';': cur = lexSingle(TokType.Semi, ';'); break;
 			case ',': cur = lexSingle(TokType.Comma, ','); break;
@@ -68,9 +69,9 @@ class Lexer {
             break;
 		}
 
-        curline ~= cur.s;
+    curline ~= cur.s;
 		// version(Debug) { import std.stdio: writeln; writeln("[", cur.type, "]"); }
-        if(cur.type == TokType.Blank) popFront(); // ignore blanks
+    if(cur.type == TokType.Blank) popFront(); // ignore blanks
 		if(cur.type == TokType.Comment) popFront(); // ignore comments
 		if(cur.type == TokType.EoL) popFront(); // ignore EoL
 	}

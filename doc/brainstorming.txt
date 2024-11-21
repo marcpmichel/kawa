@@ -1,0 +1,80 @@
+
+int fun(int a, int b) {
+  return a + b;
+}
+
+fun add < a:int, b:int > int {
+  return a + b
+}
+
+fun add(a:int, b:int) : int {
+  return a + b
+}
+
+fun add(a:int, b:int) : int { 
+  return a+b
+}
+
+add = fun(a: int, b:int) : int { return a + b }
+
+fun add :int = (a:int, b:int) {
+  return a + b
+}
+
+add :: fun(a: int, b:int) -> int { return a + b }
+
+fun add
+  params a : int, b : int 
+  output int
+    
+  return a + b
+end 
+
+fun add do |a,b|
+  a + b
+end
+
+
+(defn add (a b) (+ a b))
+
+: add a b + ;
+
+
+-----
+& ~ # | ^ @ ° £ µ % $ * § ? ! ¤
+
+a$ = "string"
+x# = 10
+x% = 1.23
+x^# = @y
+@square = |#x| {x*x}
+
+----
+
+declare a as an integer variable initialized with 10
+decl a int var = 10
+decl a int = 10
+var a = 10
+#a = 10
+int a = 10
+a:int = 10
+
+
+declare b as a float constant initialized with 1.23
+decl b float var = 1.23
+b float = 1.23
+const b = 1.23
+%b = 1.23
+float b = 1.23
+b:float = 1.23
+
+declare f as a function taking two parameters a (of type int) and b(of type int) and returning a value of type int 
+decl f int fun <a:int b:int>
+fun f:int(a:int, b:int)
+fun f(a:int, b:int):int
+@f = #(a#, b#)
+int f(int a, int b)
+f:int = fun(a:int, b:int)
+
+
+

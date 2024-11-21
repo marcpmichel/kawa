@@ -1,0 +1,39 @@
+
+# declarations
+
+module pouet
+
+import stuff
+
+
+
+# variables
+
+var x : int = 10
+
+const X : int = 100
+
+const S : string = "hello"
+
+
+# functions
+fun add(a:int, b:int) :int {
+  return a + b
+}
+
+add(1,2)
+
+
+
+# pods
+
+pod Object {
+  x: float
+  y: float
+}
+
+var o = Object(1.0, 2.3)
+
+o.x = 1.2
+
+
