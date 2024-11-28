@@ -15,6 +15,15 @@ class ASTNode {
     abstract void accept(ASTVisitor visitor);
 }
 
+class ProgramNode : ASTNode {
+    ASTNode[] nodes;
+    this(ASTNode[] nodes) {
+        super(NodeType.Program);
+        this.nodes = nodes;
+    }
+    override void accept(ASTVisitor visitor) { visitor.visit(this); }
+}
+
 class IntegerLiteralNode : ASTNode {
     int value;
     this(int value) { super(NodeType.IntegerLiteral); this.value = value; }
@@ -133,15 +142,6 @@ class BlockNode : ASTNode {
     this(ASTNode[] statements) {
         super(NodeType.Block);
         this.statements = statements;
-    }
-    override void accept(ASTVisitor visitor) { visitor.visit(this); }
-}
-
-class ProgramNode : ASTNode {
-    ASTNode[] nodes;
-    this(ASTNode[] nodes) {
-        super(NodeType.Program);
-        this.nodes = nodes;
     }
     override void accept(ASTVisitor visitor) { visitor.visit(this); }
 }

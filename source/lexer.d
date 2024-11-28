@@ -150,7 +150,7 @@ class Lexer {
 			if(program.front == '.') { t = TokType.Float; continue; }
 			if(program.front < '0' || program.front > '9') break;  // use std.ascii.isDigit ?
 		}
-		return Tok(t, s, line: line, col: col);
+		return Tok(t, s, i: s.to!int, line: line, col: col);
 	}
 	
 	Tok lexString() {

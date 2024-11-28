@@ -9,7 +9,6 @@ import value;
   assert(vm.ip == (prog.ptr + 1));
 }
 
-/+
 @("test stack push/pop") unittest {
   auto vm = new VM();
   vm.run([Op.Halt]);
@@ -40,6 +39,7 @@ import value;
   catch(RuntimeError e) { assert(true); }
 }
 
+/+
 @("test push constant") unittest {
   auto vm = new VM();
   vm.run([Op.Const]);

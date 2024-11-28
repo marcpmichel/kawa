@@ -20,9 +20,9 @@ class Parser {
     int block_level;
     Tok curTok;
 
-	this(string program) {
+	this(string code) {
 		lexer = new Lexer();
-        lexer.tokenize(program);
+        lexer.tokenize(code);
         curTok = lexer.front;
 	}
 
@@ -99,15 +99,28 @@ class Parser {
     ASTNode parseStatement() {
         ASTNode stmt;
         switch(curTok.type) {
-            case TokType.Identifier: stmt = parseAssignment(); break;
-            case TokType.Keyword: stmt = parseInstruction(); break;
+            case TokType.Identifier: stmt = parseInstruction(); break;
+            case TokType.Keyword: stmt = parseKeyword(); break;
             default: parseError("expected assignment or instruction"); 
         }
         maybe(curTok, TokType.Semi); // optional ;
         return stmt;
     }
 
+    /*
+     * Instruction: function call or assignment.
+     */
     ASTNode parseInstruction() {
+        Tok id = consume(TokType.Identifier);
+        if(isToken(TokType.LParen)) {
+            return new FunctionCallNode(id.s, parseExpressionList());
+        }
+        else {
+            return parseAssignment(id);
+        }
+    }
+
+    ASTNode parseKeyword() {
         with(Keyword) {
             switch(curTok.k) {
                 case Var:    return parseVarDeclaration(); 
@@ -122,7 +135,7 @@ class Parser {
     }
 
     ASTNode parseReturn() {
-        consume(TokType.Keyword);
+        consume(TokType.Keyword); // return
         ASTNode expr = null;
         if(!isTerminator(curTok)) {
             expr = parseExpression();
@@ -137,7 +150,8 @@ class Parser {
         return expr;
     }
 
-    ASTNode parseIf() {
+    IfNode parseIf() {
+        consume(TokType.Keyword); // if
         ASTNode condition = parseCondition();
         BlockNode thenBlock = parseBlock();
         BlockNode elseBlock = null;
@@ -196,12 +210,7 @@ class Parser {
         return new Parameter(id.s, typeTok.s, value);
     }
 
-    ASTNode parseAssignment() {
-        if(curTok.isNot(TokType.Identifier)) {
-            parseError("expected an identifier");
-            return null;
-        }
-        auto id = consume(TokType.Identifier);
+    ASTNode parseAssignment(Tok id) {
         ASTNode e = new IdentifierNode(id.s);
 
         if(curTok.isNot(TokType.Assign)) {

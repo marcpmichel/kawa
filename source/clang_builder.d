@@ -61,7 +61,7 @@ class ClangVisitor : ASTVisitor {
         else {
             node.elseBranch.accept(this);
             string elseResult = stack.pop();
-            stack.push(format("if(%s) %s; else %s;", conditionResult, thenResult, elseResult));
+            stack.push(format("if(%s) %s else %s", conditionResult, thenResult, elseResult));
         }
     }
 
@@ -99,7 +99,7 @@ class ClangVisitor : ASTVisitor {
         string[] args;
         foreach(arg; node.arguments) { arg.accept(this); args ~= stack.pop(); }
         string argsResult = args.join(", ");
-        stack.push(format("%s(%s)", node.functionName, argsResult));
+        stack.push(format("%s(%s);", node.functionName, argsResult));
     }
 
     override void visit(BlockNode node) {

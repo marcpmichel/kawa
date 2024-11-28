@@ -20,8 +20,14 @@ fun main() : int {
 	var v:Vector;
 
 	var x:int = square(12);
+	if(x == r) {
+		print("all right !");
+	}
+	else {
+		print("meh :(");
+	}
 
-	return x;
+	return 0;
 }
 
 `;
@@ -59,10 +65,10 @@ version(unittest) {
 		else {
 			writeln("--- parsed statements ---");
 
-			/* import clang_builder; */
-			/* auto v = new ClangVisitor(); */
-			import sexpression_builder;
-			auto v = new SExpressionVisitor();
+			import clang_builder;
+			auto v = new ClangVisitor();
+			/* import sexpression_builder; */
+			/* auto v = new SExpressionVisitor(); */
 			foreach(n; nodes) { 
 				n.accept(v); 
 				writeln(v.stack.pop());
